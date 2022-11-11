@@ -1,0 +1,48 @@
+##############################################################
+
+import("//react-native/common.gni")
+
+config("LibRnAsyncStorage_config") {
+  cflags_cc = [ "-std=c++17","-g"]
+  cflags_cc += [
+    "-Wno-extra-semi",
+    "-Wno-sign-compare",
+    "-Wno-header-hygiene",
+  ]
+
+  include_dirs = [ ".",
+                  "//react-native/ReactCommon/",
+                  ]
+}
+
+rn_cxx_component("RnAsyncStorage") {
+
+  # RNS Native module and its dependencies
+  sources = [
+	"RSAsyncStorage.h",
+	"RSAsyncStorage.cpp",
+  ]
+
+  # RNS Fabric Component and its dependencies
+  #sources += [
+  #]
+
+  # Spotify C++ sources
+  #sources += [
+  #]
+
+  public_configs = [ ":LibRnAsyncStorage_config" ]
+  public_configs += [ "//build/secondary/folly:folly_config" ]
+  deps = [
+    "//folly",
+    "//folly:async",
+    "//folly:synchronization",
+    "//skia",
+    "//third_party/boost:headers_only",
+    "//third_party/double-conversion:double-conversion",
+    "//third_party/glog:glog",
+  ]
+
+  with_exceptions = true
+  with_rtti = true
+}
