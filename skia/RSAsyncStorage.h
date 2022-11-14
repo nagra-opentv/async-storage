@@ -8,21 +8,18 @@
 
 #include <cxxreact/CxxModule.h>
 
+#include "ReactSkia/utils/RnsUtils.h"
+
 using namespace std;
 namespace facebook {
 namespace xplat {
 
-class RSAsyncStorage : public module:::CxxModule {
+class RSAsyncStorage : public module::CxxModule {
  public:
   RSAsyncStorage();
   virtual auto getConstants() -> std::map<std::string, folly::dynamic>;
   virtual auto getMethods() -> std::vector<Method>;
-  virtual std::string getName();
-
- private:
-  void getItem(std::string key, CxxModule::Callback resolveBlock, CxxModule::Callback rejectBlock);
-  void setItem(std::string key, std::string value, CxxModule::Callback resolveBlock, CxxModule::Callback rejectBlock);
-  void removeItem(std::string key, CxxModule::Callback resolveBlock, CxxModule::Callback rejectBlock);
+  std::string getName();
 };
 #ifdef __cplusplus
 extern "C" {

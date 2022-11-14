@@ -8,53 +8,70 @@
 #include <cxxreact/JsArgumentHelpers.h>
 
 #include "ReactSkia/utils/RnsLog.h"
-
+#include "RSAsyncStorage.h"
+using namespace folly;
 namespace facebook {
 namespace xplat {
 
-RSAsyncStorage::RSAsyncStorage(){}
+RSAsyncStorage::RSAsyncStorage(){
+}
 
 auto RSAsyncStorage::getConstants() -> std::map<std::string, folly::dynamic> {
   return {};
 }
 
 std::string RSAsyncStorage::getName() {
-  return "RNCAsyncStorage";
+  return "PlatformLocalStorage";
 }
 
-auto RSkImageLoaderModule::getMethods() -> std::vector<Method> {
+auto RSAsyncStorage::getMethods() -> std::vector<Method> {
+  RNS_LOG_ERROR("RSAsyncStorage::getMethods");
   return {
       Method(
-          "getItem",
-          [this] (dynamic args, CxxModule::Callback resolveBlock, CxxModule::Callback rejectBlock){
-            getItem(jsArgAsString(args,0),resolveBlock,rejectBlock);
+          "multiGet",
+          [] (dynamic args, CxxModule::Callback cb){
+            RNS_LOG_NOT_IMPL;
+            cb({});
+            return;
           }),
       Method(
-          "setItem",
-          [this] (dynamic args, CxxModule::Callback resolveBlock, CxxModule::Callback rejectBlock) {
-            seyItem(jsArgAsString(args, 0), jsArgAsString(args, 1), resolveBlock, rejectBlock);
+          "multiSet",
+          [] (dynamic args, CxxModule::Callback cb) {
+            RNS_LOG_NOT_IMPL;
+            cb({});
+            return;
           }),
       Method(
-          "removeItem",
-          [this] (dynamic args, CxxModule::Callback resolveBlock, CxxModule::Callback rejectBlock) {
-            removeItem(jsArgAsString(args, 0), resolveBlock, rejectBlock);
+          "multiRemove",
+          [] (dynamic args, CxxModule::Callback cb) {
+            RNS_LOG_NOT_IMPL;
+            cb({});
+            return;
           }),
+      Method(
+          "mergeItem",
+          [] (dynamic args, CxxModule::Callback cb) {
+            RNS_LOG_NOT_IMPL;
+            cb({});
+            return;
+          }),
+      Method(
+          "getAllKeys",
+          [] (dynamic args, CxxModule::Callback cb) {
+            RNS_LOG_NOT_IMPL;
+            cb({});
+            return;
+          }),
+      Method(
+          "clear",
+          [] (dynamic args, CxxModule::Callback cb) {
+            RNS_LOG_NOT_IMPL;
+            cb({});
+            return;
+          }),
+
   };
 }
-
-void RSAsyncStorage::getItem(std::string key, CxxModule::Callback resolveBlock, CxxModule::Callback rejectBlock) {
-  RNS_LOG_NOT_IMPL;
-}
-
-void RSAsyncStorage::setItem(std::string key, std::string value, CxxModule::Callback resolveBlock, CxxModule::Callback rejectBlock) {
-  RNS_LOG_NOT_IMPL;
-}
-
-void RSAsyncStorage::removeItem(std::string key, CxxModule::Callback resolveBlock, CxxModule::Callback rejectBlock) {
-  RNS_LOG_NOT_IMPL;
-}
-
-
 
 }
 }
