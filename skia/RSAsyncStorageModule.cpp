@@ -8,24 +8,23 @@
 #include <cxxreact/JsArgumentHelpers.h>
 
 #include "ReactSkia/utils/RnsLog.h"
-#include "RSAsyncStorage.h"
+#include "RSAsyncStorageModule.h"
 using namespace folly;
 namespace facebook {
 namespace xplat {
 
-RSAsyncStorage::RSAsyncStorage(){
+RSAsyncStorageModule::RSAsyncStorageModule(){
 }
 
-auto RSAsyncStorage::getConstants() -> std::map<std::string, folly::dynamic> {
+auto RSAsyncStorageModule::getConstants() -> std::map<std::string, folly::dynamic> {
   return {};
 }
 
-std::string RSAsyncStorage::getName() {
+std::string RSAsyncStorageModule::getName() {
   return "PlatformLocalStorage";
 }
 
-auto RSAsyncStorage::getMethods() -> std::vector<Method> {
-  RNS_LOG_ERROR("RSAsyncStorage::getMethods");
+auto RSAsyncStorageModule::getMethods() -> std::vector<Method> {
   return {
       Method(
           "multiGet",

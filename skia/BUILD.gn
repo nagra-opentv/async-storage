@@ -15,15 +15,15 @@ config("LibRnAsyncStorage_config") {
                   ]
 }
 
-rn_cxx_component("RnAsyncStorage") {
+rn_cxx_component("RNSAsyncStorage") {
 
   # RNS Native module and its dependencies
   sources = [
-    "RSAsyncStorage.h",
-    "RSAsyncStorage.cpp",
+    "RSAsyncStorageModule.h",
+    "RSAsyncStorageModule.cpp",
   ]
 
-  public_configs = [ ":LibRnAsyncStorage_config" ]
+  public_configs = [ ":LibRNSAsyncStorage_config" ]
   public_configs += [ "//build/secondary/folly:folly_config" ]
   deps = [
     "//folly",

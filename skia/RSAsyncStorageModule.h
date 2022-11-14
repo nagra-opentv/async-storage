@@ -14,9 +14,9 @@ using namespace std;
 namespace facebook {
 namespace xplat {
 
-class RSAsyncStorage : public module::CxxModule {
+class RSAsyncStorageModule : public module::CxxModule {
  public:
-  RSAsyncStorage();
+  RSAsyncStorageModule();
   virtual auto getConstants() -> std::map<std::string, folly::dynamic>;
   virtual auto getMethods() -> std::vector<Method>;
   std::string getName();
@@ -26,7 +26,7 @@ extern "C" {
 #endif
 
 xplat::module::CxxModule* RNAsyncStorageModuleCls(void) {
-  return new RSAsyncStorage();
+  return new RSAsyncStorageModule();
 }
 
 #ifdef __cplusplus
