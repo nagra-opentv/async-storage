@@ -9,14 +9,31 @@
 #include <cxxreact/CxxModule.h>
 
 #include "ReactSkia/utils/RnsUtils.h"
-
+#include <fstream>
+#include <thread>
+#include "rns_shell/platform/linux/TaskLoop.h"
 using namespace std;
+using namespace folly;
 namespace facebook {
 namespace xplat {
 
 class RSAsyncStorageModule : public module::CxxModule {
+private:
+  void multiGet(dynamic args, CxxModule::Callback cb);
+  void multiSet(dynamic args, CxxModule::Callback cb);
+  void multiRemove(dynamic args, CxxModule::Callback cb);
+  void mergeItem(dynamic args, CxxModule::Callback cb);
+  void getAllKeys(dynamic args, CxxModule::Callback cb);
+  void clear(dynamic args, CxxModule::Callback cb);
+  void asyncWorkerThread();
+  dynamic globalDynamic_ = dynamic::object;
+  fstream outfile_;
+  bool isWriteScheduled_;
+  std::unique_ptr<RnsShell::TaskLoop> taskRunner_{nullptr};
+  std::thread workerThread_;
  public:
   RSAsyncStorageModule();
+  ~RSAsyncStorageModule();
   virtual auto getConstants() -> std::map<std::string, folly::dynamic>;
   virtual auto getMethods() -> std::vector<Method>;
   std::string getName();

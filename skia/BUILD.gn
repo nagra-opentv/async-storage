@@ -2,7 +2,7 @@
 
 import("//react-native/common.gni")
 
-config("LibRnAsyncStorage_config") {
+config("LibRNSAsyncStorage_config") {
   cflags_cc = [ "-std=c++17"]
   cflags_cc += [
     "-Wno-extra-semi",
@@ -28,6 +28,7 @@ rn_cxx_component("RNSAsyncStorage") {
   deps = [
     "//folly",
     "//skia",
+    "//folly:async",
   ]
 
   with_exceptions = true
