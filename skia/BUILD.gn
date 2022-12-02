@@ -27,8 +27,8 @@ rn_cxx_component("RNSAsyncStorage") {
   public_configs += [ "//build/secondary/folly:folly_config" ]
   deps = [
     "//folly",
-    "//skia",
     "//folly:async",
+    "//skia",
   ]
 
   with_exceptions = true

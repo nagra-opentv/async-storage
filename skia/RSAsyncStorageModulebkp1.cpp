@@ -10,50 +10,51 @@
 #include "ReactSkia/utils/RnsLog.h"
 #include "RSAsyncStorageModule.h"
 #include <folly/json.h>
+#include <string>
+#include <fstream>
+#define ASYNC_SRG_TIMEOUT 5000
+#define ASYNC_DEFAULT_MAX_CACHE_LIMIT 6*1024*1024 //6,971,520 bytes
+#define ASYNC_VALUE_DEFAULT_MAX_CACHE_LIMIT 2*1024*1024 //2,971,520 bytes
 
 using namespace folly;
 namespace facebook {
 namespace xplat {
 
-RSAsyncStorageModule::RSAsyncStorageModule() {
-  taskRunner_ = std::make_unique<RnsShell::TaskLoop>();
-  workerThread_=std::thread (&RSAsyncStorageModule::asyncWorkerThread,this);
-  taskRunner_->waitUntilRunning();
+RSAsyncStorageModule::RSAsyncStorageModule(){
+    taskRunner_ = std::make_unique<RnsShell::TaskLoop>();
+    workerThread_=std::thread (&RSAsyncStorageModule::asyncWorkerThread,this);
+    taskRunner_->waitUntilRunning();
 
-  taskRunner_->dispatch( [this]() {
-    appLocalFile_.open(FILE_PATH, ios::out | ios::in | ios::app);
-    if (appLocalFile_) {
-      // get length of file:
-      appLocalFile_.seekg (0, appLocalFile_.end);
-      int length = appLocalFile_.tellg();
-      if(length !=0) {
-        appLocalFile_.seekg (0, appLocalFile_.beg);
+    taskRunner_->dispatch( [this]() {
+      outfile_.open("SimpleViewApp.json", ios::out | ios::in | ios::app);
+      if (outfile_) {
+        // get length of file:
+        outfile_.seekg (0, outfile_.end);
+        int length = outfile_.tellg();
+        outfile_.seekg (0, outfile_.beg);
         char * buffer = new char [length];
         // read data as a block:
-        appLocalFile_.read (buffer,length);
+        outfile_.read (buffer,length);
         RNS_LOG_ERROR(buffer);
         string Str(buffer);
         try {
-          appLocalDataFile_ = parseJson(Str);
-          totalSize_ = length;
+          appLocalDataFile = parseJson(Str);
+          totalSize = length+1;
         }
         catch(exception e) {
           RNS_LOG_ERROR("json parsing failed");
         }
         delete []buffer;
+      }else {
+        RNS_LOG_ERROR("Cannot open file");
+        return;
       }
-    }else {
-      RNS_LOG_ERROR("Cannot open file");
-      return;
-    }
 
-  });
+    });
 }
 
-RSAsyncStorageModule::~RSAsyncStorageModule() {
-  if(appLocalFile_) {
-    appLocalFile_.close();
-  }
+RSAsyncStorageModule::~RSAsyncStorageModule(){
+  outfile_.close();
   taskRunner_->stop();
   if (workerThread_.joinable() ) {
     workerThread_.join();
@@ -88,16 +89,19 @@ auto RSAsyncStorageModule::getMethods() -> std::vector<Method> {
       Method(
           "mergeItem",
           [this] (dynamic args, CxxModule::Callback cb) {
+            RNS_LOG_NOT_IMPL;
             mergeItem(args, cb);
           }),
       Method(
           "getAllKeys",
           [this] (dynamic args, CxxModule::Callback cb) {
+            RNS_LOG_NOT_IMPL;
             getAllKeys(args, cb);
           }),
       Method(
           "clear",
           [this] (dynamic args, CxxModule::Callback cb) {
+            RNS_LOG_NOT_IMPL;
             clear(args, cb);
           }),
 
@@ -111,56 +115,55 @@ void RSAsyncStorageModule::multiGet(dynamic args, CxxModule::Callback cb) {
 }
 
 void RSAsyncStorageModule::multiSet(dynamic args, CxxModule::Callback cb) {
-  if(!appLocalFile_.is_open()) {
-    dynamic errors = folly::dynamic::object();
-    errors["message"] = "Failed to write the data";
-    errors["key"] = args[0][0].asString();
-    cb({folly::dynamic::array(errors)});
-    return;
-  }
-  taskRunner_->dispatch( [this,args,cb]() {
-    int requiredLength = 0;
+
+  taskRunner_->dispatch( [this,args,cb](){
     for (auto& itemArray : args[0]) {
-      int oldLength = 0;
-      int newLength = (itemArray[0].asString()).length()+itemArray[1].asString().length()+6;
-      // value size cannot be larger than 2 MB
-      if((itemArray[1].asString()).length() < ASYNC_VALUE_DEFAULT_MAX_CACHE_LIMIT ) {
-        if((appLocalDataFile_.find(itemArray[0].asString())) != appLocalDataFile_.items().end()) {
+      size_t newLength =0;
+      size_t requiredLength =0;
+      size_t oldLength = (itemArray[0].asString()).length()+(itemArray[1].asString()).length()+6;
+      if(totalSize <ASYNC_DEFAULT_MAX_CACHE_LIMIT && (itemArray[1].asString()).length() < ASYNC_VALUE_DEFAULT_MAX_CACHE_LIMIT ) {
+        //appLocalDataFile[itemArray[0].asString()] = itemArray[1].asString();
+        if((appLocalDataFile.find(itemArray[0].asString())) != appLocalDataFile.items().end()){
           RNS_LOG_ERROR("FOUND multiGet AGAIN");
-          oldLength = (itemArray[0].asString()).length()+(appLocalDataFile_[itemArray[0]].asString()).length()+6;
+          newLength = (itemArray[0].asString()).length()+(itemArray[1].asString()).length()+6;
           if(oldLength < newLength) {
             requiredLength = newLength - oldLength;
           }else{
-            requiredLength = oldLength-newLength;
+            requiredLength =0;
           }
+          totalSize += newLength+requiredLength;
+          //totalSize += (itemArray[0].asString()).length()+(itemArray[1].asString()).length()+6;
         }else{
-          requiredLength= newLength;
+          totalSize += oldLength;
         }
-        appLocalDataFile_[itemArray[0].asString()] = itemArray[1].asString();
+        appLocalDataFile[itemArray[0].asString()] = itemArray[1].asString();
       }
     }
-    totalSize_ += requiredLength;
-    RNS_LOG_ERROR("totalSize_" << totalSize_);
+    RNS_LOG_ERROR("totalSize "<<totalSize);
     if(isWriteScheduled_)
       return;
-    RNS_LOG_DEBUG("Scheduling to write the file");
-    if(totalSize_ < ASYNC_STORAGE_DEFAULT_MAX_CACHE_LIMIT) {
-      taskRunner_->scheduleDispatch( [&](){
-        RNS_LOG_DEBUG ("writing to json file");
-        string str = toJson(appLocalDataFile_);
-        RNS_LOG_ERROR("SIZE OF file" << str.length());
-        // Total storage size is capped at 6 MB by default.
-        filesystem::resize_file(FILE_PATH, 0);
-        appLocalFile_.seekp(0);
-        appLocalFile_ << str;
-        appLocalFile_.flush();
-        isWriteScheduled_ = false;
-
-      }, ASYNC_SRG_TIMEOUT);
-    }else{
-      RNS_LOG_WARN("async storage size is greater than 6mb");
-      return;
-    }
+    RNS_LOG_DEBUG("Scheduled filewrite" );
+    taskRunner_->scheduleDispatch( [&](){
+      RNS_LOG_DEBUG ("writing to file SimpleViewApp.json");
+      folly::json::serialization_opts opts;
+      string str = folly::json::serialize(appLocalDataFile, opts);
+      if(!outfile_.is_open()) {
+        dynamic errors = folly::dynamic::object();
+        errors["message"] = "not able to do set Item operation";
+        errors["key"] = args[0][0].asString();
+        cb({folly::dynamic::array(errors)});
+        return;
+      }RNS_LOG_ERROR("SIZE OF STR" << str.length());
+      // truncate file
+      if(str.length() <ASYNC_DEFAULT_MAX_CACHE_LIMIT) {
+        RNS_LOG_ERROR("value is less than 6mb");
+      filesystem::resize_file("SimpleViewApp.json", 0);
+      outfile_.seekp(0);
+      outfile_ << str;
+      outfile_.flush();
+      isWriteScheduled_ = false;
+      }
+    }, ASYNC_SRG_TIMEOUT);
     isWriteScheduled_ = true;;
   cb({});
 });
@@ -190,5 +193,5 @@ void RSAsyncStorageModule::clear(dynamic args, CxxModule::Callback cb) {
 void RSAsyncStorageModule::asyncWorkerThread() {
   taskRunner_->run();
 }
-}//xplat
-}//facebook
+}
+}
