@@ -31,6 +31,7 @@ private:
   bool isWriteScheduled_;
   std::unique_ptr<RnsShell::TaskLoop> taskRunner_{nullptr};
   std::thread workerThread_;
+  size_t totalSize =0;
  public:
   RSAsyncStorageModule();
   ~RSAsyncStorageModule();
