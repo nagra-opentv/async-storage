@@ -31,7 +31,6 @@ RSAsyncStorageModule::RSAsyncStorageModule() {
         char * buffer = new char [length];
         // read data as a block:
         appLocalFile_.read (buffer,length);
-        RNS_LOG_ERROR(buffer);
         string Str(buffer);
         try {
           appLocalDataFile_ = parseJson(Str);
@@ -126,7 +125,6 @@ void RSAsyncStorageModule::multiSet(dynamic args, CxxModule::Callback cb) {
       // value size cannot be larger than 2 MB
       if((itemArray[1].asString()).length() < ASYNC_VALUE_DEFAULT_MAX_CACHE_LIMIT ) {
         if((appLocalDataFile_.find(itemArray[0].asString())) != appLocalDataFile_.items().end()) {
-          RNS_LOG_ERROR("FOUND multiGet AGAIN");
           oldLength = (itemArray[0].asString()).length()+(appLocalDataFile_[itemArray[0]].asString()).length()+6;
           if(oldLength < newLength) {
             requiredLength = newLength - oldLength;
@@ -140,7 +138,6 @@ void RSAsyncStorageModule::multiSet(dynamic args, CxxModule::Callback cb) {
       }
     }
     totalSize_ += requiredLength;
-    RNS_LOG_ERROR("totalSize_" << totalSize_);
     if(isWriteScheduled_)
       return;
     RNS_LOG_DEBUG("Scheduling to write the file");
@@ -148,7 +145,6 @@ void RSAsyncStorageModule::multiSet(dynamic args, CxxModule::Callback cb) {
       taskRunner_->scheduleDispatch( [&](){
         RNS_LOG_DEBUG ("writing to json file");
         string str = toJson(appLocalDataFile_);
-        RNS_LOG_ERROR("SIZE OF file" << str.length());
         // Total storage size is capped at 6 MB by default.
         filesystem::resize_file(FILE_PATH, 0);
         appLocalFile_.seekp(0);
