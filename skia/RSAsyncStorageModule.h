@@ -33,6 +33,7 @@ class RSAsyncStorageModule : public module::CxxModule {
   void getAllKeys(dynamic args, CxxModule::Callback cb);
   void clear(dynamic args, CxxModule::Callback cb);
   void asyncWorkerThread();
+  void writeToFile();
   dynamic appLocalDataFile_ = dynamic::object;
   fstream appLocalFile_;
   bool isWriteScheduled_;

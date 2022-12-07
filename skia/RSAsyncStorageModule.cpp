@@ -105,8 +105,25 @@ auto RSAsyncStorageModule::getMethods() -> std::vector<Method> {
 
 
 void RSAsyncStorageModule::multiGet(dynamic args, CxxModule::Callback cb) {
-  RNS_LOG_NOT_IMPL;
-  cb({});
+  taskRunner_->dispatch( [this,args,cb](){
+    dynamic errors = folly::dynamic::array;
+    dynamic resultArray = folly::dynamic::array;
+    for (auto& itemArray : args[0]) { 
+      auto pos = appLocalDataFile_.find(itemArray);
+      dynamic errorItem = folly::dynamic::object();
+      if(pos == appLocalDataFile_.items().end()){
+        errorItem["message"] = "Failed to found the get Item";
+        errorItem["key"] = itemArray;
+        errors.push_back(errorItem);
+      }else{
+        dynamic result = folly::dynamic::array;
+        result.push_back(itemArray);
+        result.push_back(appLocalDataFile_[itemArray]);
+        resultArray.push_back(result);
+      }
+    }
+    cb({(errors.empty() ? nullptr : errors), resultArray});
+  });  
 }
 
 void RSAsyncStorageModule::multiSet(dynamic args, CxxModule::Callback cb) {
@@ -141,18 +158,14 @@ void RSAsyncStorageModule::multiSet(dynamic args, CxxModule::Callback cb) {
     if(isWriteScheduled_)
       return;
     RNS_LOG_DEBUG("Scheduling to write the file");
+    // Total storage size is capped at 6 MB by default.
     if(totalSize_ < ASYNC_STORAGE_DEFAULT_MAX_CACHE_LIMIT) {
       taskRunner_->scheduleDispatch( [&](){
-        RNS_LOG_DEBUG ("writing to json file");
-        string str = toJson(appLocalDataFile_);
-        // Total storage size is capped at 6 MB by default.
-        filesystem::resize_file(FILE_PATH, 0);
-        appLocalFile_.seekp(0);
-        appLocalFile_ << str;
-        appLocalFile_.flush();
+        writeToFile();        
         isWriteScheduled_ = false;
 
       }, ASYNC_SRG_TIMEOUT);
+
     }else{
       RNS_LOG_WARN("async storage size is greater than 6mb");
       return;
@@ -163,9 +176,38 @@ void RSAsyncStorageModule::multiSet(dynamic args, CxxModule::Callback cb) {
 
 }
 
+void RSAsyncStorageModule::writeToFile(){
+  string str = toJson(appLocalDataFile_);
+  filesystem::resize_file(FILE_PATH, 0);
+  appLocalFile_.seekp(0);
+  appLocalFile_ << str;
+  appLocalFile_.flush();
+}
+
 void RSAsyncStorageModule::multiRemove(dynamic args, CxxModule::Callback cb) {
-  RNS_LOG_NOT_IMPL;
-  cb({});
+  if(!appLocalFile_.is_open()) {
+    dynamic errors = folly::dynamic::object();
+    errors["message"] = "Failed to remove the data";
+    errors["key"] = args[0][0].asString();
+    cb({folly::dynamic::array(errors)});
+    return;
+  }
+  taskRunner_->dispatch( [this,args,cb](){
+    dynamic errors = folly::dynamic::object();
+    for (auto& itemArray : args[0]) {
+      auto pos = appLocalDataFile_.find(itemArray);
+      if(pos == appLocalDataFile_.items().end()) {
+        errors["message"] = "Failed to remove the data";
+        errors["key"] = args[0][0].asString();
+      }else {
+        appLocalDataFile_.erase(itemArray);
+      }
+    }
+    taskRunner_->scheduleDispatch( [&](){
+      writeToFile();
+    },ASYNC_SRG_TIMEOUT);
+    cb({(errors.empty() ? nullptr : errors)});
+  });
 }
 
 void RSAsyncStorageModule::mergeItem(dynamic args, CxxModule::Callback cb) {
