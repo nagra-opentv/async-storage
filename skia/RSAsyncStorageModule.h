@@ -12,12 +12,13 @@
 #include "ReactSkia/utils/RnsUtils.h"
 
 #ifndef FILE_PATH
-#define FILE_PATH "SimpleViewApp.json"
+#define FILE_PATH ("SimpleViewApp.json")
 #endif
 
-#define ASYNC_SRG_TIMEOUT 5000
-#define ASYNC_STORAGE_DEFAULT_MAX_CACHE_LIMIT 6*1024*1024 //6,971,520 bytes
-#define ASYNC_VALUE_DEFAULT_MAX_CACHE_LIMIT 2*1024*1024 //2,971,520 bytes
+#define EXTRA_CHARACTER_PADDING_LENGTH (6) // padding for commas and colons
+#define ASYNC_STORGAE_FILE_WRITE_TIMEOUT (5000) // 5 seconds
+#define ASYNC_STORAGE_FILE_MAX_LENGTH (6*1024*1024) //6,971,520 bytes
+#define ASYNC_STORAGE_VALUE_MAX_LENGTH (2*1024*1024) //2,971,520 bytes
 
 using namespace std;
 using namespace folly;

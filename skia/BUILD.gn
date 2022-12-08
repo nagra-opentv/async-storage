@@ -2,7 +2,7 @@
 
 import("//react-native/common.gni")
 
-config("LibRNSAsyncStorage_config") {
+config("LibRSAsyncStorage_config") {
   cflags_cc = [ "-std=c++17"]
   cflags_cc += [
     "-Wno-extra-semi",
@@ -15,7 +15,7 @@ config("LibRNSAsyncStorage_config") {
                   ]
 }
 
-rn_cxx_component("RNSAsyncStorage") {
+rn_cxx_component("RSAsyncStorage") {
 
   # RNS Native module and its dependencies
   sources = [
@@ -23,10 +23,9 @@ rn_cxx_component("RNSAsyncStorage") {
     "RSAsyncStorageModule.cpp",
   ]
 
-  public_configs = [ ":LibRNSAsyncStorage_config" ]
+  public_configs = [ ":LibRSAsyncStorage_config" ]
   public_configs += [ "//build/secondary/folly:folly_config" ]
   deps = [
-    "//folly",
     "//folly:async",
     "//skia",
   ]

@@ -5,11 +5,10 @@
 * LICENSE file in the root directory of this source tree.
 */
 
+#include <folly/json.h>
 #include <cxxreact/JsArgumentHelpers.h>
-
 #include "ReactSkia/utils/RnsLog.h"
 #include "RSAsyncStorageModule.h"
-#include <folly/json.h>
 
 using namespace folly;
 namespace facebook {
@@ -22,7 +21,7 @@ RSAsyncStorageModule::RSAsyncStorageModule() {
 
   taskRunner_->dispatch( [this]() {
     appLocalFile_.open(FILE_PATH, ios::out | ios::in | ios::app);
-    if (appLocalFile_) {
+    if (appLocalFile_.is_open()) {
       // get length of file:
       appLocalFile_.seekg (0, appLocalFile_.end);
       int length = appLocalFile_.tellg();
@@ -35,8 +34,7 @@ RSAsyncStorageModule::RSAsyncStorageModule() {
         try {
           appLocalDataFile_ = parseJson(Str);
           totalSize_ = length;
-        }
-        catch(exception e) {
+        }catch(exception e) {
           RNS_LOG_ERROR("json parsing failed");
         }
         delete []buffer;
@@ -50,7 +48,7 @@ RSAsyncStorageModule::RSAsyncStorageModule() {
 }
 
 RSAsyncStorageModule::~RSAsyncStorageModule() {
-  if(appLocalFile_) {
+  if(appLocalFile_.is_open()) {
     appLocalFile_.close();
   }
   taskRunner_->stop();
@@ -108,39 +106,45 @@ void RSAsyncStorageModule::multiGet(dynamic args, CxxModule::Callback cb) {
   taskRunner_->dispatch( [this,args,cb](){
     dynamic errors = folly::dynamic::array;
     dynamic resultArray = folly::dynamic::array;
-    for (auto& itemArray : args[0]) { 
-      auto pos = appLocalDataFile_.find(itemArray);
-      dynamic errorItem = folly::dynamic::object();
+    for (auto& keyString : args[0]) { 
+      auto pos = appLocalDataFile_.find(keyString);
       if(pos == appLocalDataFile_.items().end()){
+        dynamic errorItem = folly::dynamic::object();
         errorItem["message"] = "Failed to found the get Item";
-        errorItem["key"] = itemArray;
+        errorItem["key"] = keyString;
         errors.push_back(errorItem);
       }else{
         dynamic result = folly::dynamic::array;
-        result.push_back(itemArray);
-        result.push_back(appLocalDataFile_[itemArray]);
+        result.push_back(pos->first);
+        result.push_back(pos->second);
         resultArray.push_back(result);
       }
     }
     cb({(errors.empty() ? nullptr : errors), resultArray});
-  });  
+  });
 }
 
 void RSAsyncStorageModule::multiSet(dynamic args, CxxModule::Callback cb) {
-  if(!appLocalFile_.is_open()) {
-    dynamic errors = folly::dynamic::object();
-    errors["message"] = "Failed to write the data";
-    errors["key"] = args[0][0].asString();
-    cb({folly::dynamic::array(errors)});
-    return;
-  }
   taskRunner_->dispatch( [this,args,cb]() {
+    if(!appLocalFile_.is_open()) {
+      dynamic errors = folly::dynamic::array;
+      for(auto& itemArray : args[0]){
+        dynamic errorItem = folly::dynamic::object();
+        errorItem["message"] = "Failed to write the data";
+        errorItem["key"] = itemArray[0].asString();
+        errors.push_back(errorItem);
+      }
+      cb({folly::dynamic::array(errors)});
+      return;
+    }
     int requiredLength = 0;
+    bool needsFileWrite;
+    dynamic errorList = folly::dynamic::array;
     for (auto& itemArray : args[0]) {
       int oldLength = 0;
-      int newLength = (itemArray[0].asString()).length()+itemArray[1].asString().length()+6;
+      int newLength = (itemArray[0].asString()).length()+itemArray[1].asString().length()+EXTRA_CHARACTER_PADDING_LENGTH;
       // value size cannot be larger than 2 MB
-      if((itemArray[1].asString()).length() < ASYNC_VALUE_DEFAULT_MAX_CACHE_LIMIT ) {
+      if((itemArray[1].asString()).length() < ASYNC_STORAGE_VALUE_MAX_LENGTH ) {
         if((appLocalDataFile_.find(itemArray[0].asString())) != appLocalDataFile_.items().end()) {
           oldLength = (itemArray[0].asString()).length()+(appLocalDataFile_[itemArray[0]].asString()).length()+6;
           if(oldLength < newLength) {
@@ -151,28 +155,33 @@ void RSAsyncStorageModule::multiSet(dynamic args, CxxModule::Callback cb) {
         }else{
           requiredLength= newLength;
         }
+      } else {
+         dynamic errorItem = folly::dynamic::object();
+         errorItem["message"] = "Failed to write the data, value size is larger than 2 MB";
+         errorItem["key"] = itemArray[0].asString();
+         errorList.push_back(errorItem);
+         continue;
+      }
+      if(( totalSize_ + requiredLength) < ASYNC_STORAGE_FILE_MAX_LENGTH){
         appLocalDataFile_[itemArray[0].asString()] = itemArray[1].asString();
+        needsFileWrite = true;
+        totalSize_ += requiredLength;
+      }else{
+        RNS_LOG_WARN("async storage size is greater than 6mb");
+        return;
       }
     }
-    totalSize_ += requiredLength;
-    if(isWriteScheduled_)
-      return;
-    RNS_LOG_DEBUG("Scheduling to write the file");
-    // Total storage size is capped at 6 MB by default.
-    if(totalSize_ < ASYNC_STORAGE_DEFAULT_MAX_CACHE_LIMIT) {
+
+    if(needsFileWrite && isWriteScheduled_ == false){
       taskRunner_->scheduleDispatch( [&](){
-        writeToFile();        
-        isWriteScheduled_ = false;
-
-      }, ASYNC_SRG_TIMEOUT);
-
-    }else{
-      RNS_LOG_WARN("async storage size is greater than 6mb");
-      return;
+        writeToFile();
+      }, ASYNC_STORGAE_FILE_WRITE_TIMEOUT);
+      needsFileWrite = false;
+      isWriteScheduled_ = true;
     }
-    isWriteScheduled_ = true;;
-  cb({});
-});
+    cb({(errorList.empty() ? nullptr : errorList)});
+    return;
+  });
 
 }
 
@@ -182,30 +191,38 @@ void RSAsyncStorageModule::writeToFile(){
   appLocalFile_.seekp(0);
   appLocalFile_ << str;
   appLocalFile_.flush();
+  isWriteScheduled_ = false;
 }
 
 void RSAsyncStorageModule::multiRemove(dynamic args, CxxModule::Callback cb) {
-  if(!appLocalFile_.is_open()) {
-    dynamic errors = folly::dynamic::object();
-    errors["message"] = "Failed to remove the data";
-    errors["key"] = args[0][0].asString();
-    cb({folly::dynamic::array(errors)});
-    return;
-  }
   taskRunner_->dispatch( [this,args,cb](){
+    if(!appLocalFile_.is_open()) {
+      dynamic errors = folly::dynamic::array;
+      for(auto& keyString : args[0]){
+        dynamic errorItem = folly::dynamic::object();
+        errorItem["message"] = "Failed to remove the data";
+        errorItem["key"] = keyString;
+        errors.push_back(errorItem);
+      }
+      cb({folly::dynamic::array(errors)});
+      return;
+    }
     dynamic errors = folly::dynamic::object();
-    for (auto& itemArray : args[0]) {
-      auto pos = appLocalDataFile_.find(itemArray);
+    for (auto& keyString : args[0]) {
+      auto pos = appLocalDataFile_.find(keyString);
       if(pos == appLocalDataFile_.items().end()) {
         errors["message"] = "Failed to remove the data";
-        errors["key"] = args[0][0].asString();
+        errors["key"] = keyString;
       }else {
-        appLocalDataFile_.erase(itemArray);
+        appLocalDataFile_.erase(pos->first);
       }
     }
-    taskRunner_->scheduleDispatch( [&](){
-      writeToFile();
-    },ASYNC_SRG_TIMEOUT);
+    if(isWriteScheduled_ == false){
+      taskRunner_->scheduleDispatch( [&](){
+        writeToFile();
+      },ASYNC_STORGAE_FILE_WRITE_TIMEOUT);
+      isWriteScheduled_ = true;
+    }
     cb({(errors.empty() ? nullptr : errors)});
   });
 }
