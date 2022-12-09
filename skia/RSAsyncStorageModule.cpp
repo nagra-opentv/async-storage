@@ -110,7 +110,7 @@ void RSAsyncStorageModule::multiGet(dynamic args, CxxModule::Callback cb) {
       auto pos = appLocalDataFile_.find(keyString);
       if(pos == appLocalDataFile_.items().end()){
         dynamic errorItem = folly::dynamic::object();
-        errorItem["message"] = "Failed to found the get Item";
+        errorItem["message"] = "Key not found in local storage";
         errorItem["key"] = keyString;
         errors.push_back(errorItem);
       }else{
@@ -120,7 +120,7 @@ void RSAsyncStorageModule::multiGet(dynamic args, CxxModule::Callback cb) {
         resultArray.push_back(result);
       }
     }
-    cb({(errors.empty() ? nullptr : errors), resultArray});
+    cb({(errors.empty() ? nullptr : errors),(resultArray.empty() ? nullptr : resultArray) });
   });
 }
 
@@ -130,7 +130,7 @@ void RSAsyncStorageModule::multiSet(dynamic args, CxxModule::Callback cb) {
       dynamic errors = folly::dynamic::array;
       for(auto& itemArray : args[0]){
         dynamic errorItem = folly::dynamic::object();
-        errorItem["message"] = "Failed to write the data";
+        errorItem["message"] = "Failed to write the data, internal error";
         errorItem["key"] = itemArray[0].asString();
         errors.push_back(errorItem);
       }
@@ -138,7 +138,7 @@ void RSAsyncStorageModule::multiSet(dynamic args, CxxModule::Callback cb) {
       return;
     }
     int requiredLength = 0;
-    bool needsFileWrite;
+    bool needsFileWrite = false;
     dynamic errorList = folly::dynamic::array;
     for (auto& itemArray : args[0]) {
       int oldLength = 0;
@@ -157,7 +157,7 @@ void RSAsyncStorageModule::multiSet(dynamic args, CxxModule::Callback cb) {
         }
       } else {
          dynamic errorItem = folly::dynamic::object();
-         errorItem["message"] = "Failed to write the data, value size is larger than 2 MB";
+         errorItem["message"] = "Failed to write the data, value size is larger than "+to_string(ASYNC_STORAGE_VALUE_MAX_LENGTH) +"mb";
          errorItem["key"] = itemArray[0].asString();
          errorList.push_back(errorItem);
          continue;
@@ -167,7 +167,7 @@ void RSAsyncStorageModule::multiSet(dynamic args, CxxModule::Callback cb) {
         needsFileWrite = true;
         totalSize_ += requiredLength;
       }else{
-        RNS_LOG_WARN("async storage size is greater than 6mb");
+        RNS_LOG_WARN("async storage size is greater than "<<ASYNC_STORAGE_FILE_MAX_LENGTH<< "mb");
         return;
       }
     }
@@ -200,7 +200,7 @@ void RSAsyncStorageModule::multiRemove(dynamic args, CxxModule::Callback cb) {
       dynamic errors = folly::dynamic::array;
       for(auto& keyString : args[0]){
         dynamic errorItem = folly::dynamic::object();
-        errorItem["message"] = "Failed to remove the data";
+        errorItem["message"] = "Failed to remove the data, internal error";
         errorItem["key"] = keyString;
         errors.push_back(errorItem);
       }
@@ -211,7 +211,7 @@ void RSAsyncStorageModule::multiRemove(dynamic args, CxxModule::Callback cb) {
     for (auto& keyString : args[0]) {
       auto pos = appLocalDataFile_.find(keyString);
       if(pos == appLocalDataFile_.items().end()) {
-        errors["message"] = "Failed to remove the data";
+        errors["message"] = "Failed to remove the data, key not found";
         errors["key"] = keyString;
       }else {
         appLocalDataFile_.erase(pos->first);
