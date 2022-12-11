@@ -5,18 +5,45 @@
 * LICENSE file in the root directory of this source tree.
 */
 #pragma once
-
+#include <fstream>
+#include <thread>
+#include "rns_shell/platform/linux/TaskLoop.h"
 #include <cxxreact/CxxModule.h>
-
 #include "ReactSkia/utils/RnsUtils.h"
 
+#ifndef FILE_PATH
+#define FILE_PATH ("SimpleViewApp.json")
+#endif
+
+#define EXTRA_CHARACTER_PADDING_LENGTH (6) // padding for commas and colons
+#define ASYNC_STORGAE_FILE_WRITE_TIMEOUT (5000) // 5 seconds
+#define ASYNC_STORAGE_FILE_MAX_LENGTH (6*1024*1024) //6,971,520 bytes
+#define ASYNC_STORAGE_VALUE_MAX_LENGTH (2*1024*1024) //2,971,520 bytes
+
 using namespace std;
+using namespace folly;
 namespace facebook {
 namespace xplat {
 
 class RSAsyncStorageModule : public module::CxxModule {
+ private:
+  void multiGet(dynamic args, CxxModule::Callback cb);
+  void multiSet(dynamic args, CxxModule::Callback cb);
+  void multiRemove(dynamic args, CxxModule::Callback cb);
+  void mergeItem(dynamic args, CxxModule::Callback cb);
+  void getAllKeys(dynamic args, CxxModule::Callback cb);
+  void clear(dynamic args, CxxModule::Callback cb);
+  void asyncWorkerThread();
+  void writeToFile();
+  dynamic appLocalDataFile_ = dynamic::object;
+  fstream appLocalFile_;
+  bool isWriteScheduled_;
+  std::unique_ptr<RnsShell::TaskLoop> taskRunner_{nullptr};
+  std::thread workerThread_;
+  size_t totalSize_ =0;
  public:
   RSAsyncStorageModule();
+  ~RSAsyncStorageModule();
   virtual auto getConstants() -> std::map<std::string, folly::dynamic>;
   virtual auto getMethods() -> std::vector<Method>;
   std::string getName();
@@ -32,5 +59,5 @@ xplat::module::CxxModule* RNAsyncStorageModuleCls(void) {
 #ifdef __cplusplus
 }
 #endif
-}
-}
+}//xplat
+}//facebook
