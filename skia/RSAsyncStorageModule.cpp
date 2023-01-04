@@ -239,9 +239,10 @@ void RSAsyncStorageModule::getAllKeys(dynamic args, CxxModule::Callback cb) {
     if(!appLocalFile_.is_open()) {
       errors["message"] = "Failed to get the keys, internal error";
       errors["key"] = "";
-    }
-    for(auto& appKeydata :appLocalDataFile_.keys()){
-      resultArray.push_back(appKeydata);
+    }else{
+      for(auto& appKeydata :appLocalDataFile_.keys()){
+        resultArray.push_back(appKeydata);
+      }
     }
     cb({(errors.empty() ? nullptr : errors),(resultArray.empty() ? nullptr : resultArray)});
   });
