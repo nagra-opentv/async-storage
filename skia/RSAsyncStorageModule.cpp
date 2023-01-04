@@ -233,13 +233,39 @@ void RSAsyncStorageModule::mergeItem(dynamic args, CxxModule::Callback cb) {
 }
 
 void RSAsyncStorageModule::getAllKeys(dynamic args, CxxModule::Callback cb) {
-  RNS_LOG_NOT_IMPL;
-  cb({});
+  taskRunner_->dispatch( [this,args,cb](){
+    dynamic resultArray = folly::dynamic::array;
+    dynamic errors = folly::dynamic::object();
+    if(!appLocalFile_.is_open()) {
+      errors["message"] = "Failed to get the keys, internal error";
+      errors["key"] = "";
+    }
+    for(auto& appKeydata :appLocalDataFile_.keys()){
+      resultArray.push_back(appKeydata);
+    }
+    cb({(errors.empty() ? nullptr : errors),(resultArray.empty() ? nullptr : resultArray)});
+  });
 }
 
 void RSAsyncStorageModule::clear(dynamic args, CxxModule::Callback cb) {
-  RNS_LOG_NOT_IMPL;
-  cb({});
+  taskRunner_->dispatch( [this,args,cb](){
+    if(!appLocalFile_.is_open()) {
+      dynamic errors = folly::dynamic::object();
+      errors["message"] = "Failed to clear the data, internal error";
+      errors["key"] = "";
+      cb({(errors.empty() ? nullptr : errors)});
+      return;
+    }else{
+      appLocalDataFile_.erase(appLocalDataFile_.items().begin(), appLocalDataFile_.items().end());
+      if(isWriteScheduled_ == false){
+        taskRunner_->scheduleDispatch( [&](){
+          writeToFile();
+        },ASYNC_STORGAE_FILE_WRITE_TIMEOUT);
+        isWriteScheduled_ = true;
+      }
+    }
+    cb({});
+  });
 }
 
 void RSAsyncStorageModule::asyncWorkerThread() {
