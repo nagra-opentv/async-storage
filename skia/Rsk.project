@@ -1,0 +1,12 @@
+{
+  "codegenConfig": {
+    "name": "rnasyncstorage",
+    "version": "1.17.10",
+    "type": "modules",
+    "skia": {
+      "TurboModuleRegistryGetEnforcingSpec" : [
+        "RNCAsyncStorage"
+      ]
+    }
+  }
+}

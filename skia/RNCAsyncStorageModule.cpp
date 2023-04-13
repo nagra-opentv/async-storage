@@ -8,15 +8,15 @@
 #include <folly/json.h>
 #include <cxxreact/JsArgumentHelpers.h>
 #include "ReactSkia/utils/RnsLog.h"
-#include "RSAsyncStorageModule.h"
+#include "RNCAsyncStorageModule.h"
 
 using namespace folly;
 namespace facebook {
 namespace xplat {
 
-RSAsyncStorageModule::RSAsyncStorageModule() {
+RNCAsyncStorageModule::RNCAsyncStorageModule() {
   taskRunner_ = std::make_unique<RnsShell::TaskLoop>();
-  workerThread_=std::thread (&RSAsyncStorageModule::asyncWorkerThread,this);
+  workerThread_=std::thread (&RNCAsyncStorageModule::asyncWorkerThread,this);
   taskRunner_->waitUntilRunning();
 
   taskRunner_->dispatch( [this]() {
@@ -47,7 +47,7 @@ RSAsyncStorageModule::RSAsyncStorageModule() {
   });
 }
 
-RSAsyncStorageModule::~RSAsyncStorageModule() {
+RNCAsyncStorageModule::~RNCAsyncStorageModule() {
   if(appLocalFile_.is_open()) {
     appLocalFile_.close();
   }
@@ -57,15 +57,15 @@ RSAsyncStorageModule::~RSAsyncStorageModule() {
   }
 }
 
-auto RSAsyncStorageModule::getConstants() -> std::map<std::string, folly::dynamic> {
+auto RNCAsyncStorageModule::getConstants() -> std::map<std::string, folly::dynamic> {
   return {};
 }
 
-std::string RSAsyncStorageModule::getName() {
-  return "PlatformLocalStorage";
+std::string RNCAsyncStorageModule::getName() {
+  return "RNCAsyncStorage";
 }
 
-auto RSAsyncStorageModule::getMethods() -> std::vector<Method> {
+auto RNCAsyncStorageModule::getMethods() -> std::vector<Method> {
   return {
       Method(
           "multiGet",
@@ -102,7 +102,7 @@ auto RSAsyncStorageModule::getMethods() -> std::vector<Method> {
 }
 
 
-void RSAsyncStorageModule::multiGet(dynamic args, CxxModule::Callback cb) {
+void RNCAsyncStorageModule::multiGet(dynamic args, CxxModule::Callback cb) {
   taskRunner_->dispatch( [this,args,cb](){
     dynamic errors = folly::dynamic::array;
     dynamic resultArray = folly::dynamic::array;
@@ -124,7 +124,7 @@ void RSAsyncStorageModule::multiGet(dynamic args, CxxModule::Callback cb) {
   });
 }
 
-void RSAsyncStorageModule::multiSet(dynamic args, CxxModule::Callback cb) {
+void RNCAsyncStorageModule::multiSet(dynamic args, CxxModule::Callback cb) {
   taskRunner_->dispatch( [this,args,cb]() {
     if(!appLocalFile_.is_open()) {
       dynamic errors = folly::dynamic::array;
@@ -185,7 +185,7 @@ void RSAsyncStorageModule::multiSet(dynamic args, CxxModule::Callback cb) {
 
 }
 
-void RSAsyncStorageModule::writeToFile(){
+void RNCAsyncStorageModule::writeToFile(){
   string str = toJson(appLocalDataFile_);
   filesystem::resize_file(FILE_PATH, 0);
   appLocalFile_.seekp(0);
@@ -194,7 +194,7 @@ void RSAsyncStorageModule::writeToFile(){
   isWriteScheduled_ = false;
 }
 
-void RSAsyncStorageModule::multiRemove(dynamic args, CxxModule::Callback cb) {
+void RNCAsyncStorageModule::multiRemove(dynamic args, CxxModule::Callback cb) {
   taskRunner_->dispatch( [this,args,cb](){
     if(!appLocalFile_.is_open()) {
       dynamic errors = folly::dynamic::array;
@@ -227,12 +227,12 @@ void RSAsyncStorageModule::multiRemove(dynamic args, CxxModule::Callback cb) {
   });
 }
 
-void RSAsyncStorageModule::mergeItem(dynamic args, CxxModule::Callback cb) {
+void RNCAsyncStorageModule::mergeItem(dynamic args, CxxModule::Callback cb) {
   RNS_LOG_NOT_IMPL;
   cb({});
 }
 
-void RSAsyncStorageModule::getAllKeys(dynamic args, CxxModule::Callback cb) {
+void RNCAsyncStorageModule::getAllKeys(dynamic args, CxxModule::Callback cb) {
   taskRunner_->dispatch( [this,args,cb](){
     dynamic resultArray = folly::dynamic::array;
     dynamic errors = folly::dynamic::object();
@@ -248,7 +248,7 @@ void RSAsyncStorageModule::getAllKeys(dynamic args, CxxModule::Callback cb) {
   });
 }
 
-void RSAsyncStorageModule::clear(dynamic args, CxxModule::Callback cb) {
+void RNCAsyncStorageModule::clear(dynamic args, CxxModule::Callback cb) {
   taskRunner_->dispatch( [this,args,cb](){
     if(!appLocalFile_.is_open()) {
       dynamic errors = folly::dynamic::object();
@@ -269,8 +269,17 @@ void RSAsyncStorageModule::clear(dynamic args, CxxModule::Callback cb) {
   });
 }
 
-void RSAsyncStorageModule::asyncWorkerThread() {
+void RNCAsyncStorageModule::asyncWorkerThread() {
   taskRunner_->run();
 }
-}//xplat
-}//facebook
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+RNS_EXPORT_MODULE(RNCAsyncStorage)
+#ifdef __cplusplus
+}
+#endif
+
+} // namespace xplat
+} // namespace facebook
