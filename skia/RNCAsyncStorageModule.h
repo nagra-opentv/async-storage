@@ -25,7 +25,14 @@ using namespace folly;
 namespace facebook {
 namespace xplat {
 
-class RSAsyncStorageModule : public module::CxxModule {
+class RNCAsyncStorageModule : public module::CxxModule {
+ public:
+  RNCAsyncStorageModule();
+  ~RNCAsyncStorageModule();
+  std::map<std::string, folly::dynamic> getConstants() override;
+  std::vector<Method> getMethods() override;
+  std::string getName() override;
+  
  private:
   void multiGet(dynamic args, CxxModule::Callback cb);
   void multiSet(dynamic args, CxxModule::Callback cb);
@@ -41,23 +48,8 @@ class RSAsyncStorageModule : public module::CxxModule {
   std::unique_ptr<RnsShell::TaskLoop> taskRunner_{nullptr};
   std::thread workerThread_;
   size_t totalSize_ =0;
- public:
-  RSAsyncStorageModule();
-  ~RSAsyncStorageModule();
-  virtual auto getConstants() -> std::map<std::string, folly::dynamic>;
-  virtual auto getMethods() -> std::vector<Method>;
-  std::string getName();
+
 };
-#ifdef __cplusplus
-extern "C" {
-#endif
 
-xplat::module::CxxModule* RNAsyncStorageModuleCls(void) {
-  return new RSAsyncStorageModule();
-}
-
-#ifdef __cplusplus
-}
-#endif
 }//xplat
 }//facebook
